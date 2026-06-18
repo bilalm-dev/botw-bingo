@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useNavigate } from "react-router-dom"
 
 function generateRoomCode() {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -14,6 +15,7 @@ function generateRoomCode() {
 function HomePage() {
   const [pseudo, setPseudo] = useState("")
   const [roomCode, setRoomCode] = useState("")
+  const navigate = useNavigate()
 
   useEffect(() => {
     const saved = localStorage.getItem("botw_pseudo")
@@ -25,17 +27,17 @@ function HomePage() {
   }, [pseudo])
 
   function handleCreateRoom() {
-    if (!pseudo.trim()) return
+  if (!pseudo.trim()) return
 
-    const code = generateRoomCode()
-    alert(`Room créée : ${code}`)
-  }
+  const code = generateRoomCode()
+  navigate(`/lobby/${code}`)
+}
 
   function handleJoinRoom() {
-    if (!pseudo.trim() || !roomCode.trim()) return
+  if (!pseudo.trim() || !roomCode.trim()) return
 
-    alert(`Rejoindre la room : ${roomCode}`)
-  }
+  navigate(`/lobby/${roomCode}`)
+}
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">
