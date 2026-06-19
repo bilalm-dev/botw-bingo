@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
+import { supabase } from "../lib/supabase"
 
 function generateRoomCode() {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -26,10 +27,25 @@ function HomePage() {
     localStorage.setItem("botw_pseudo", pseudo)
   }, [pseudo])
 
-  function handleCreateRoom() {
+async function handleCreateRoom() {
   if (!pseudo.trim()) return
 
   const code = generateRoomCode()
+
+  const { error } = await supabase
+    .from("rooms")
+    .insert({
+      code,
+      status: "waiting",
+      grid_state: {},
+    })
+
+  if (error) {
+  console.error("SUPABASE ERROR:", error)
+  alert(JSON.stringify(error, null, 2))
+  return
+  }
+
   navigate(`/lobby/${code}`)
 }
 
@@ -76,6 +92,19 @@ function HomePage() {
           >
             Rejoindre une partie
           </button>
+
+          <button
+          onClick={async () => {
+            const { data, error } = await supabase
+              .from("rooms")
+              .select("*")
+
+            console.log("DATA", data)
+            console.log("ERROR", error)
+          }}
+        >
+          Test Supabase
+        </button>
         </div>
 
         <p className="text-sm text-gray-400">
