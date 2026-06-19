@@ -49,10 +49,27 @@ async function handleCreateRoom() {
   navigate(`/lobby/${code}`)
 }
 
-  function handleJoinRoom() {
+async function handleJoinRoom() {
   if (!pseudo.trim() || !roomCode.trim()) return
 
-  navigate(`/lobby/${roomCode}`)
+  const { data, error } = await supabase
+    .from("rooms")
+    .select("id")
+    .eq("code", roomCode.trim().toUpperCase())
+    .maybeSingle()
+
+  if (error) {
+    console.error(error)
+    alert("Erreur lors de la vérification de la room")
+    return
+  }
+
+  if (!data) {
+    alert("Code room non valide")
+    return
+  }
+
+  navigate(`/lobby/${roomCode.trim().toUpperCase()}`)
 }
 
   return (
