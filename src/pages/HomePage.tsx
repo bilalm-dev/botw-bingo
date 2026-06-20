@@ -38,6 +38,7 @@ async function handleCreateRoom() {
       code,
       status: "waiting",
       grid_state: {},
+      created_by: pseudo,
     })
 
   if (error) {
