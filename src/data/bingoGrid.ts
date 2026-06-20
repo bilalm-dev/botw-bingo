@@ -2,6 +2,7 @@ export type BingoCell = {
   id: number
   label: string
   checked?: boolean
+  checkedBy?: string | null
 }
 
 export const bingoGrid: BingoCell[] = [
