@@ -17,7 +17,6 @@ function LobbyPage() {
   const [grid, setGrid] = useState<BingoCell[]>(bingoGrid)
   const [players, setPlayers] = useState<Player[]>([])
   const [winner, setWinner] = useState<string | null>(null)
-  const [roomExists, setRoomExists] = useState(true)
 
   // -----------------------------
   // INIT ROOM
@@ -33,7 +32,7 @@ function LobbyPage() {
         .maybeSingle()
 
       if (!room) {
-        setRoomExists(false)
+        setRoomUuid("")
         return
       }
 
@@ -266,7 +265,7 @@ console.log("UPDATE RESULT", error)
   return (
   <div className="min-h-screen bg-slate-950 text-white p-6">
 
-    {/* CAS ROOM INVALIDE */}
+    {/* ROOM INVALIDE */}
     {!roomUuid && (
       <div className="flex items-center justify-center min-h-screen">
         <p className="text-red-400 text-xl">
@@ -275,7 +274,7 @@ console.log("UPDATE RESULT", error)
       </div>
     )}
 
-    {/* CONTENU NORMAL */}
+    {/* ROOM VALIDE */}
     {roomUuid && (
       <>
         <h1 className="text-center text-2xl font-bold mb-2">
