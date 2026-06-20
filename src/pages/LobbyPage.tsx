@@ -17,6 +17,7 @@ function LobbyPage() {
   const [grid, setGrid] = useState<BingoCell[]>(bingoGrid)
   const [players, setPlayers] = useState<Player[]>([])
   const [winner, setWinner] = useState<string | null>(null)
+  const [roomExists, setRoomExists] = useState(true)
 
   // -----------------------------
   // INIT ROOM
@@ -31,7 +32,10 @@ function LobbyPage() {
         .eq("code", roomId)
         .maybeSingle()
 
-      if (!room) return
+      if (!room) {
+        setRoomExists(false)
+        return
+      }
 
       setRoomUuid(room.id)
       setWinner(room.winner ?? null)
@@ -260,63 +264,77 @@ console.log("UPDATE RESULT", error)
   // UI
   // -----------------------------
   return (
-    <div className="min-h-screen bg-slate-950 text-white p-6">
+  <div className="min-h-screen bg-slate-950 text-white p-6">
 
-      <h1 className="text-center text-2xl font-bold mb-2">
-        Lobby
-      </h1>
-
-      <p className="text-center text-gray-300 mb-4">
-        Room : {roomId}
-      </p>
-
-      {/* PLAYERS */}
-      <div className="flex justify-center gap-2 flex-wrap mb-4">
-        {players.map((p) => (
-          <span
-            key={p.id}
-            className={`px-3 py-1 rounded text-sm ${
-              p.pseudo === pseudo
-                ? "bg-green-600"
-                : "bg-blue-600"
-            }`}
-          >
-            {p.pseudo}
-          </span>
-        ))}
+    {/* CAS ROOM INVALIDE */}
+    {!roomUuid && (
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-red-400 text-xl">
+          Room introuvable ❌
+        </p>
       </div>
+    )}
 
-      {/* WINNER */}
-      {winner && (
-        <div className="text-center text-yellow-400 font-bold mb-4">
-          🏆 {winner} a gagné !
-        </div>
-      )}
+    {/* CONTENU NORMAL */}
+    {roomUuid && (
+      <>
+        <h1 className="text-center text-2xl font-bold mb-2">
+          Lobby
+        </h1>
 
-      {/* GRID */}
-      <div className="grid grid-cols-5 gap-2 max-w-4xl mx-auto">
-        {grid.map((cell) => (
-          <div
-            key={cell.id}
-            onClick={() => toggleCell(cell.id)}
-            className={`
-              p-2 rounded text-xs text-center cursor-pointer select-none
-              ${
-                !cell.checked
-                  ? "bg-slate-800 hover:bg-slate-700"
-                  : cell.checkedBy === pseudo
+        <p className="text-center text-gray-300 mb-4">
+          Room : {roomId}
+        </p>
+
+        {/* PLAYERS */}
+        <div className="flex justify-center gap-2 flex-wrap mb-4">
+          {players.map((p) => (
+            <span
+              key={p.id}
+              className={`px-3 py-1 rounded text-sm ${
+                p.pseudo === pseudo
                   ? "bg-green-600"
                   : "bg-blue-600"
-              }
-            `}
-          >
-            {cell.label}
-          </div>
-        ))}
-      </div>
+              }`}
+            >
+              {p.pseudo}
+            </span>
+          ))}
+        </div>
 
-    </div>
-  )
+        {/* WINNER */}
+        {winner && (
+          <div className="text-center text-yellow-400 font-bold mb-4">
+            🏆 {winner} a gagné !
+          </div>
+        )}
+
+        {/* GRID */}
+        <div className="grid grid-cols-5 gap-2 max-w-4xl mx-auto">
+          {grid.map((cell) => (
+            <div
+              key={cell.id}
+              onClick={() => toggleCell(cell.id)}
+              className={`
+                p-2 rounded text-xs text-center cursor-pointer select-none
+                ${
+                  !cell.checked
+                    ? "bg-slate-800 hover:bg-slate-700"
+                    : cell.checkedBy === pseudo
+                    ? "bg-green-600"
+                    : "bg-blue-600"
+                }
+              `}
+            >
+              {cell.label}
+            </div>
+          ))}
+        </div>
+      </>
+    )}
+
+  </div>
+)
 }
 
 export default LobbyPage
