@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { supabase } from "../lib/supabase"
-import { generateBalancedGrid, type BingoCell } from "../lib/generateGrid"
+import { generateBalancedGrid, type BingoCell as BingoCellData } from "../lib/generateGrid"
 import { getOrCreatePlayerUid } from "../lib/playerUid"
+import { BingoCell } from "../components/BingoCell"
 
 type Player = {
   id: string
@@ -17,7 +18,7 @@ function LobbyPage() {
   const [roomUuid, setRoomUuid] = useState<string | null>(null)
   const [createdBy, setCreatedBy] = useState<string | null>(null)
   const [players, setPlayers] = useState<Player[]>([])
-  const [grid, setGrid] = useState<BingoCell[]>([])
+  const [grid, setGrid] = useState<BingoCellData[]>([])
   const [winner, setWinner] = useState<string | null>(null)
   const [status, setStatus] = useState<string>("playing")
 
@@ -25,7 +26,7 @@ function LobbyPage() {
 
   // référence toujours à jour, indépendante des re-renders, pour éviter les races
   // entre l'init de la grille et l'arrivée des events realtime sur room_cells
-  const templateRef = useRef<BingoCell[]>([])
+  const templateRef = useRef<BingoCellData[]>([])
 
   const myPlayer = players.find((p) => p.player_uid === playerUid)
   const pseudo = myPlayer?.pseudo ?? localStorage.getItem("botw_pseudo") ?? "Joueur"
@@ -47,7 +48,7 @@ function LobbyPage() {
 
       // sécurité : si grid_state est vide/invalide (ancienne room, ou bug),
       // on génère une grille de secours plutôt que de planter
-      const loadedTemplate: BingoCell[] =
+      const loadedTemplate: BingoCellData[] =
         Array.isArray(room.grid_state) && room.grid_state.length === 25
           ? room.grid_state
           : generateBalancedGrid()
@@ -193,9 +194,9 @@ function LobbyPage() {
   }
 
   // ---------------- WIN CHECK ----------------
-  const isMine = (cell: BingoCell) => cell.checkedBy === playerUid
+  const isMine = (cell: BingoCellData) => cell.checkedBy === playerUid
 
-  function checkWin(g: BingoCell[]) {
+  function checkWin(g: BingoCellData[]) {
     if (g.length !== 25) return false
     const size = 5
 
@@ -263,32 +264,44 @@ function LobbyPage() {
 
   // ---------------- UI ----------------
   return (
-    <div className="min-h-screen bg-slate-950 text-white p-6">
-      <h1 className="text-center text-2xl font-bold mb-4">Lobby</h1>
+    <div className="min-h-screen bg-void p-6 font-body text-white">
+      <h1 className="mb-6 text-center font-display text-2xl tracking-wide text-ancient-gold">
+        Bingo Hyrule
+      </h1>
 
-      <div className="flex justify-center gap-2 flex-wrap mb-4">
-        {players.map((p) => (
-          <span
-            key={p.id}
-            className={`px-3 py-1 rounded text-sm ${
-              p.player_uid === playerUid ? "bg-green-600" : "bg-blue-600"
-            }`}
-          >
-            {p.pseudo}
-          </span>
-        ))}
+      <div className="mb-6 flex flex-wrap justify-center gap-2">
+        {players.map((p) => {
+          const isSelf = p.player_uid === playerUid
+          const isPlayerHost = p.player_uid === createdBy
+
+          return (
+            <span
+              key={p.id}
+              className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm ${
+                isSelf
+                  ? "border-korok-moss/50 bg-korok-moss/10 text-korok-moss"
+                  : "border-guardian-ember/40 bg-guardian-ember/5 text-guardian-ember"
+              }`}
+            >
+              {isPlayerHost && (
+                <span className="h-2 w-2 rotate-45 bg-ancient-gold" aria-hidden="true" />
+              )}
+              {p.pseudo}
+            </span>
+          )
+        })}
       </div>
 
       {winner && (
-        <div className="text-center mb-4">
-          <p className="text-yellow-400 font-bold mb-3">
+        <div className="mx-auto mb-6 max-w-md animate-fade-up rounded-lg border border-ancient-gold/40 bg-ancient-gold/10 p-5 text-center">
+          <p className="mb-3 font-display text-lg tracking-wide text-ancient-gold">
             🏆 {winner} a gagné la partie !
           </p>
 
           {isHost && (
             <button
               onClick={resetGame}
-              className="bg-blue-600 px-6 py-2 rounded font-bold"
+              className="rounded-md bg-sheikah-teal px-6 py-2 font-display text-void transition hover:brightness-110"
             >
               Relancer une partie
             </button>
@@ -296,21 +309,16 @@ function LobbyPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-5 gap-2 max-w-4xl mx-auto">
+      <div className="mx-auto grid max-w-3xl grid-cols-5 gap-2 sm:gap-3">
         {grid.map((cell) => (
-          <div
+          <BingoCell
             key={cell.id}
+            label={cell.label}
+            checked={!!cell.checked}
+            mine={isMine(cell)}
+            disabled={!!winner || !!cell.checked}
             onClick={() => toggleCell(cell.id)}
-            className={`p-2 rounded text-xs text-center cursor-pointer select-none transition ${
-              !cell.checked
-                ? "bg-slate-800 hover:bg-slate-700"
-                : isMine(cell)
-                ? "bg-green-600"
-                : "bg-blue-600"
-            }`}
-          >
-            {cell.label}
-          </div>
+          />
         ))}
       </div>
     </div>

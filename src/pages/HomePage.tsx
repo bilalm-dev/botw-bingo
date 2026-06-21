@@ -39,7 +39,7 @@ function HomePage() {
       .insert({
         code,
         status: "waiting",
-        created_by: playerUid, // on stocke l'UID, pas le pseudo (plus fiable pour isHost)
+        created_by: playerUid,
       })
       .select("id")
       .single()
@@ -49,7 +49,6 @@ function HomePage() {
       return
     }
 
-    // FIX BUG 2 : on enregistre bien le player_uid du host
     const { error: playerError } = await supabase.from("players").upsert(
       {
         room_id: room.id,
@@ -94,7 +93,7 @@ function HomePage() {
         pseudo,
         player_uid: playerUid,
       },
-      { onConflict: "room_id,player_uid" } // évite les doublons si on rejoint 2x
+      { onConflict: "room_id,player_uid" }
     )
 
     if (error) {
@@ -106,43 +105,62 @@ function HomePage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">
-      <div className="space-y-4 text-center w-full max-w-sm">
-        <h1 className="text-3xl font-bold">Breath of the Wild Bingo</h1>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-void px-4 font-body text-white">
+      <div className="w-full max-w-md animate-fade-up rounded-xl border border-white/10 bg-slate-stone/60 p-8 shadow-2xl backdrop-blur">
+        <h1 className="mb-1 text-center font-display text-3xl tracking-wide text-ancient-gold">
+          Bingo Hyrule
+        </h1>
+        <p className="mb-8 text-center text-xs uppercase tracking-[0.2em] text-parchment/40">
+          Breath of the Wild Bingo
+        </p>
 
+        <label className="mb-1 block text-xs uppercase tracking-wide text-parchment/50">
+          Pseudo
+        </label>
         <input
-          className="w-full px-3 py-2 rounded bg-white text-black border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="mb-6 w-full rounded-md border border-white/10 bg-void/60 px-3 py-2.5 text-white placeholder:text-parchment/30 focus:border-sheikah-teal/60 focus:outline-none focus:ring-1 focus:ring-sheikah-teal/40"
           placeholder="Ton pseudo"
           value={pseudo}
           onChange={(e) => setPseudo(e.target.value)}
         />
 
-        <div className="pt-4 space-y-2">
-          <button
-            className="w-full bg-blue-600 py-2 rounded disabled:opacity-50"
-            onClick={handleCreateRoom}
-            disabled={!pseudo.trim()}
-          >
-            Créer une partie
-          </button>
+        <button
+          className="mb-8 w-full rounded-md bg-ancient-gold px-4 py-2.5 font-display tracking-wide text-void transition hover:brightness-110 disabled:cursor-not-allowed disabled:bg-white/5 disabled:text-parchment/40"
+          onClick={handleCreateRoom}
+          disabled={!pseudo.trim()}
+        >
+          Créer une partie
+        </button>
 
-          <input
-            className="w-full px-3 py-2 rounded bg-white text-black border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Code de room (ex: BOTW-4F9K)"
-            value={roomCode}
-            onChange={(e) => setRoomCode(e.target.value)}
-          />
-
-          <button
-            className="w-full bg-green-600 py-2 rounded disabled:opacity-50"
-            onClick={handleJoinRoom}
-            disabled={!pseudo.trim() || !roomCode.trim()}
-          >
-            Rejoindre une partie
-          </button>
+        <div className="mb-6 flex items-center gap-3">
+          <span className="h-px flex-1 bg-white/10" />
+          <span className="text-xs uppercase tracking-widest text-parchment/30">
+            ou
+          </span>
+          <span className="h-px flex-1 bg-white/10" />
         </div>
 
-        <p className="text-sm text-gray-400">Pseudo : {pseudo || "non défini"}</p>
+        <label className="mb-1 block text-xs uppercase tracking-wide text-parchment/50">
+          Code de room
+        </label>
+        <input
+          className="mb-4 w-full rounded-md border border-sheikah-teal/20 bg-void/60 px-3 py-2.5 font-rune tracking-widest text-sheikah-teal placeholder:font-body placeholder:tracking-normal placeholder:text-parchment/30 focus:border-sheikah-teal/60 focus:outline-none focus:ring-1 focus:ring-sheikah-teal/40"
+          placeholder="BOTW-4F9K"
+          value={roomCode}
+          onChange={(e) => setRoomCode(e.target.value)}
+        />
+
+        <button
+          className="w-full rounded-md bg-korok-moss px-4 py-2.5 font-display tracking-wide text-void transition hover:brightness-110 disabled:cursor-not-allowed disabled:bg-white/5 disabled:text-parchment/40"
+          onClick={handleJoinRoom}
+          disabled={!pseudo.trim() || !roomCode.trim()}
+        >
+          Rejoindre une partie
+        </button>
+
+        <p className="mt-6 text-center text-xs text-parchment/30">
+          Pseudo : {pseudo || "non défini"}
+        </p>
       </div>
     </div>
   )

@@ -138,47 +138,71 @@ function WaitingRoomPage() {
     }
   }
 
-  // FIX BUG 2 : comparaison sur l'UID, plus jamais sur le pseudo
+  // comparaison sur l'UID, plus jamais sur le pseudo
   const isHost = createdBy === playerUid
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center">
-      <h1 className="text-3xl font-bold mb-4">Salle d'attente</h1>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-void px-4 font-body text-white">
+      <div className="w-full max-w-md animate-fade-up rounded-xl border border-white/10 bg-slate-stone/60 p-8 shadow-2xl backdrop-blur">
+        <h1 className="mb-6 text-center font-display text-2xl tracking-wide text-ancient-gold">
+          Salle d'attente
+        </h1>
 
-      <p className="text-gray-400 mb-2">Room : {roomId}</p>
-      <p className="text-gray-500 mb-4">Statut : {status}</p>
-
-      <div className="flex gap-2 flex-wrap justify-center mb-6">
-        {players.map((p) => (
-          <span
-            key={p.id}
-            className={`px-3 py-1 rounded ${
-              p.player_uid === playerUid ? "bg-green-600" : "bg-blue-600"
-            }`}
-          >
-            {p.pseudo}
+        <div className="mb-2 flex items-center justify-center gap-2 rounded-md border border-sheikah-teal/30 bg-void/60 px-4 py-2">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-sheikah-teal" />
+          <span className="font-rune text-sm tracking-widest text-sheikah-teal">
+            {roomId}
           </span>
-        ))}
-      </div>
+        </div>
 
-      {isHost ? (
-        <div className="flex flex-col items-center gap-2">
+        <p className="mb-6 text-center text-xs text-parchment/50">
+          Statut : {status}
+        </p>
+
+        <div className="mb-8 flex flex-wrap justify-center gap-2">
+          {players.map((p) => {
+            const isSelf = p.player_uid === playerUid
+            const isPlayerHost = p.player_uid === createdBy
+
+            return (
+              <span
+                key={p.id}
+                className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-body ${
+                  isSelf
+                    ? "border-korok-moss/50 bg-korok-moss/10 text-korok-moss"
+                    : "border-guardian-ember/40 bg-guardian-ember/5 text-guardian-ember"
+                }`}
+              >
+                {isPlayerHost && (
+                  <span className="h-2 w-2 rotate-45 bg-ancient-gold" aria-hidden="true" />
+                )}
+                {p.pseudo}
+              </span>
+            )
+          })}
+        </div>
+
+        {isHost ? (
+          <div className="flex flex-col items-center gap-2">
             <button
-            onClick={startGame}
-            disabled={players.length < 2}
-            className="bg-green-600 px-6 py-2 rounded font-bold disabled:opacity-40 disabled:cursor-not-allowed"
+              onClick={startGame}
+              disabled={players.length < 2}
+              className="rounded-md bg-ancient-gold px-6 py-2.5 font-display tracking-wide text-void transition hover:brightness-110 disabled:cursor-not-allowed disabled:bg-white/5 disabled:text-parchment/40"
             >
-            Lancer la partie
+              Lancer la partie
             </button>
             {players.length < 2 && (
-            <p className="text-xs text-gray-500">
+              <p className="text-xs text-parchment/50">
                 Il faut au moins 2 joueurs pour lancer la partie
-            </p>
+              </p>
             )}
-        </div>
+          </div>
         ) : (
-        <p className="text-gray-500">En attente du créateur...</p>
+          <p className="text-center text-sm italic text-parchment/50">
+            En attente du créateur...
+          </p>
         )}
+      </div>
     </div>
   )
 }
