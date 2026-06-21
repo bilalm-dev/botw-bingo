@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { supabase } from "../lib/supabase"
 import { getOrCreatePlayerUid } from "../lib/playerUid"
+import { generateBalancedGrid } from "../lib/generateGrid"
 
 type Player = {
   id: string
@@ -118,23 +119,24 @@ function WaitingRoomPage() {
     if (!roomUuid) return
     if (players.length < 2) return
 
+    const grid = generateBalancedGrid()
+
     const { data, error } = await supabase
-        .from("rooms")
-        .update({ status: "playing" })
-        .eq("id", roomUuid)
-        .eq("status", "waiting") // empêche un double-start (double-clic ou 2 clients en course)
-        .select("id")
+      .from("rooms")
+      .update({ status: "playing", grid_state: grid })
+      .eq("id", roomUuid)
+      .eq("status", "waiting")
+      .select("id")
 
     if (error) {
-        console.error(error)
-        return
+      console.error(error)
+      return
     }
 
     if (!data || data.length === 0) {
-        // la partie a déjà été lancée juste avant (par un autre clic / un autre client)
-        console.warn("La partie a déjà été lancée")
+      console.warn("La partie a déjà été lancée")
     }
-    }
+  }
 
   // FIX BUG 2 : comparaison sur l'UID, plus jamais sur le pseudo
   const isHost = createdBy === playerUid

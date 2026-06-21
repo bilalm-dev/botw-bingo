@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { supabase } from "../lib/supabase"
-import { bingoGrid, type BingoCell } from "../data/bingoGrid"
+import { generateBalancedGrid, type BingoCell } from "../lib/generateGrid"
 import { getOrCreatePlayerUid } from "../lib/playerUid"
 
 type Player = {
@@ -17,13 +17,16 @@ function LobbyPage() {
   const [roomUuid, setRoomUuid] = useState<string | null>(null)
   const [createdBy, setCreatedBy] = useState<string | null>(null)
   const [players, setPlayers] = useState<Player[]>([])
-  const [grid, setGrid] = useState<BingoCell[]>(bingoGrid)
+  const [grid, setGrid] = useState<BingoCell[]>([])
   const [winner, setWinner] = useState<string | null>(null)
   const [status, setStatus] = useState<string>("playing")
 
   const [playerUid] = useState(() => getOrCreatePlayerUid())
 
-  // pseudo fiable : vient de la table players (serveur), pas du localStorage
+  // référence toujours à jour, indépendante des re-renders, pour éviter les races
+  // entre l'init de la grille et l'arrivée des events realtime sur room_cells
+  const templateRef = useRef<BingoCell[]>([])
+
   const myPlayer = players.find((p) => p.player_uid === playerUid)
   const pseudo = myPlayer?.pseudo ?? localStorage.getItem("botw_pseudo") ?? "Joueur"
 
@@ -36,11 +39,20 @@ function LobbyPage() {
 
       const { data: room } = await supabase
         .from("rooms")
-        .select("id, winner, created_by, status")
+        .select("id, winner, created_by, status, grid_state")
         .eq("code", roomId)
         .maybeSingle()
 
       if (!room) return
+
+      // sécurité : si grid_state est vide/invalide (ancienne room, ou bug),
+      // on génère une grille de secours plutôt que de planter
+      const loadedTemplate: BingoCell[] =
+        Array.isArray(room.grid_state) && room.grid_state.length === 25
+          ? room.grid_state
+          : generateBalancedGrid()
+
+      templateRef.current = loadedTemplate
 
       setRoomUuid(room.id)
       setWinner(room.winner ?? null)
@@ -64,7 +76,7 @@ function LobbyPage() {
     if (data) setPlayers(data)
   }
 
-  // ---------------- GRID — grille PARTAGÉE, chaque case n'est cochée qu'une fois ----------------
+  // ---------------- GRID — fusion du template (défis) + état coché (room_cells) ----------------
   async function refreshGrid(rId: string) {
     const { data } = await supabase
       .from("room_cells")
@@ -73,7 +85,7 @@ function LobbyPage() {
 
     if (!data) return
 
-    const updated = bingoGrid.map((cell) => {
+    const updated = templateRef.current.map((cell) => {
       const match = data.find((c) => c.cell_id === cell.id)
       return {
         ...cell,
@@ -143,7 +155,6 @@ function LobbyPage() {
           setWinner(data.winner ?? null)
           setCreatedBy(data.created_by ?? null)
 
-          // la room a été réinitialisée (par le host) -> tout le monde retourne en salle d'attente
           if (data.status === "waiting") {
             navigate(`/waiting/${roomId}`)
           }
@@ -185,6 +196,7 @@ function LobbyPage() {
   const isMine = (cell: BingoCell) => cell.checkedBy === playerUid
 
   function checkWin(g: BingoCell[]) {
+    if (g.length !== 25) return false
     const size = 5
 
     for (let r = 0; r < size; r++) {
@@ -202,7 +214,7 @@ function LobbyPage() {
   }
 
   useEffect(() => {
-    if (status !== "playing") return // empêche tout recalcul pendant un reset ou hors partie
+    if (status !== "playing") return
     if (winner) return
     if (!checkWin(grid)) return
 
@@ -240,14 +252,13 @@ function LobbyPage() {
 
     const { error: updateError } = await supabase
       .from("rooms")
-      .update({ winner: null, status: "waiting", finished_at: null })
+      .update({ winner: null, status: "waiting", finished_at: null, grid_state: {} })
       .eq("id", roomUuid)
-      .eq("status", "finished") // anti double-clic / anti relance hors contexte
+      .eq("status", "finished")
 
     if (updateError) {
       console.error(updateError)
     }
-    // pas besoin de naviguer ici : le channel realtime ci-dessus redirige TOUT LE MONDE
   }
 
   // ---------------- UI ----------------
