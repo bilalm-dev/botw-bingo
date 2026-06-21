@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { useParams } from "react-router-dom"
+import { useNavigate, useParams } from "react-router-dom"
 import { supabase } from "../lib/supabase"
 import { bingoGrid, type BingoCell } from "../data/bingoGrid"
 import { getOrCreatePlayerUid } from "../lib/playerUid"
@@ -12,14 +12,22 @@ type Player = {
 
 function LobbyPage() {
   const { roomId } = useParams()
+  const navigate = useNavigate()
 
   const [roomUuid, setRoomUuid] = useState<string | null>(null)
+  const [createdBy, setCreatedBy] = useState<string | null>(null)
   const [players, setPlayers] = useState<Player[]>([])
   const [grid, setGrid] = useState<BingoCell[]>(bingoGrid)
   const [winner, setWinner] = useState<string | null>(null)
+  const [status, setStatus] = useState<string>("playing")
 
   const [playerUid] = useState(() => getOrCreatePlayerUid())
-  const pseudo = localStorage.getItem("botw_pseudo") ?? ""
+
+  // pseudo fiable : vient de la table players (serveur), pas du localStorage
+  const myPlayer = players.find((p) => p.player_uid === playerUid)
+  const pseudo = myPlayer?.pseudo ?? localStorage.getItem("botw_pseudo") ?? "Joueur"
+
+  const isHost = createdBy === playerUid
 
   // ---------------- INIT ----------------
   useEffect(() => {
@@ -28,7 +36,7 @@ function LobbyPage() {
 
       const { data: room } = await supabase
         .from("rooms")
-        .select("id, winner")
+        .select("id, winner, created_by, status")
         .eq("code", roomId)
         .maybeSingle()
 
@@ -36,6 +44,8 @@ function LobbyPage() {
 
       setRoomUuid(room.id)
       setWinner(room.winner ?? null)
+      setCreatedBy(room.created_by ?? null)
+      setStatus(room.status)
 
       await refreshPlayers(room.id)
       await refreshGrid(room.id)
@@ -111,23 +121,32 @@ function LobbyPage() {
     }
   }, [roomUuid])
 
-  // ---------------- REALTIME WINNER ----------------
+  // ---------------- REALTIME ROOM (winner + status + reset -> redirection collective) ----------------
   useEffect(() => {
     if (!roomUuid) return
 
     const channel = supabase
-      .channel(`room-${roomUuid}-winner`)
+      .channel(`room-${roomUuid}-status`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "rooms", filter: `id=eq.${roomUuid}` },
         async () => {
           const { data } = await supabase
             .from("rooms")
-            .select("winner")
+            .select("winner, status, created_by")
             .eq("id", roomUuid)
             .maybeSingle()
 
-          setWinner(data?.winner ?? null)
+          if (!data) return
+
+          setStatus(data.status)
+          setWinner(data.winner ?? null)
+          setCreatedBy(data.created_by ?? null)
+
+          // la room a été réinitialisée (par le host) -> tout le monde retourne en salle d'attente
+          if (data.status === "waiting") {
+            navigate(`/waiting/${roomId}`)
+          }
         }
       )
       .subscribe()
@@ -135,7 +154,7 @@ function LobbyPage() {
     return () => {
       void supabase.removeChannel(channel)
     }
-  }, [roomUuid])
+  }, [roomUuid, roomId])
 
   // ---------------- CLICK CELL ----------------
   async function toggleCell(id: number) {
@@ -143,7 +162,7 @@ function LobbyPage() {
     if (winner) return
 
     const cell = grid.find((c) => c.id === id)
-    if (cell?.checked) return // déjà verrouillée, peu importe qui l'a cochée
+    if (cell?.checked) return
 
     const { error } = await supabase.from("room_cells").insert({
       room_id: roomUuid,
@@ -152,19 +171,17 @@ function LobbyPage() {
     })
 
     if (error) {
-      // 23505 = un autre joueur a validé cette case juste avant nous (course gagnée par lui)
       if (error.code !== "23505") console.error(error)
-      await refreshGrid(roomUuid) // on resynchronise pour afficher qui l'a vraiment eue
+      await refreshGrid(roomUuid)
       return
     }
 
-    // mise à jour optimiste locale, le realtime confirmera derrière
     setGrid((g) =>
       g.map((c) => (c.id === id ? { ...c, checked: true, checkedBy: playerUid } : c))
     )
   }
 
-  // ---------------- WIN CHECK (sur les cases QUE J'AI validées) ----------------
+  // ---------------- WIN CHECK ----------------
   const isMine = (cell: BingoCell) => cell.checkedBy === playerUid
 
   function checkWin(g: BingoCell[]) {
@@ -185,23 +202,53 @@ function LobbyPage() {
   }
 
   useEffect(() => {
+    if (status !== "playing") return // empêche tout recalcul pendant un reset ou hors partie
     if (winner) return
     if (!checkWin(grid)) return
 
     setWinner(pseudo)
 
     if (roomUuid) {
-      // .is("winner", null) => seul le 1er joueur qui valide une victoire l'emporte réellement
       supabase
         .from("rooms")
-        .update({ winner: pseudo, finished_at: new Date().toISOString() })
+        .update({
+          winner: pseudo,
+          status: "finished",
+          finished_at: new Date().toISOString(),
+        })
         .eq("id", roomUuid)
         .is("winner", null)
         .then(({ error }) => {
           if (error) console.error(error)
         })
     }
-  }, [grid, winner])
+  }, [grid, winner, status])
+
+  // ---------------- RESET / RELANCER (host uniquement) ----------------
+  async function resetGame() {
+    if (!roomUuid) return
+
+    const { error: deleteError } = await supabase
+      .from("room_cells")
+      .delete()
+      .eq("room_id", roomUuid)
+
+    if (deleteError) {
+      console.error(deleteError)
+      return
+    }
+
+    const { error: updateError } = await supabase
+      .from("rooms")
+      .update({ winner: null, status: "waiting", finished_at: null })
+      .eq("id", roomUuid)
+      .eq("status", "finished") // anti double-clic / anti relance hors contexte
+
+    if (updateError) {
+      console.error(updateError)
+    }
+    // pas besoin de naviguer ici : le channel realtime ci-dessus redirige TOUT LE MONDE
+  }
 
   // ---------------- UI ----------------
   return (
@@ -222,8 +269,19 @@ function LobbyPage() {
       </div>
 
       {winner && (
-        <div className="text-center text-yellow-400 font-bold mb-4">
-          🏆 {winner} a gagné la partie !
+        <div className="text-center mb-4">
+          <p className="text-yellow-400 font-bold mb-3">
+            🏆 {winner} a gagné la partie !
+          </p>
+
+          {isHost && (
+            <button
+              onClick={resetGame}
+              className="bg-blue-600 px-6 py-2 rounded font-bold"
+            >
+              Relancer une partie
+            </button>
+          )}
         </div>
       )}
 

@@ -116,9 +116,25 @@ function WaitingRoomPage() {
   // ---------------- START GAME ----------------
   async function startGame() {
     if (!roomUuid) return
+    if (players.length < 2) return
 
-    await supabase.from("rooms").update({ status: "playing" }).eq("id", roomUuid)
-  }
+    const { data, error } = await supabase
+        .from("rooms")
+        .update({ status: "playing" })
+        .eq("id", roomUuid)
+        .eq("status", "waiting") // empêche un double-start (double-clic ou 2 clients en course)
+        .select("id")
+
+    if (error) {
+        console.error(error)
+        return
+    }
+
+    if (!data || data.length === 0) {
+        // la partie a déjà été lancée juste avant (par un autre clic / un autre client)
+        console.warn("La partie a déjà été lancée")
+    }
+    }
 
   // FIX BUG 2 : comparaison sur l'UID, plus jamais sur le pseudo
   const isHost = createdBy === playerUid
@@ -144,12 +160,23 @@ function WaitingRoomPage() {
       </div>
 
       {isHost ? (
-        <button onClick={startGame} className="bg-green-600 px-6 py-2 rounded font-bold">
-          Lancer la partie
-        </button>
-      ) : (
+        <div className="flex flex-col items-center gap-2">
+            <button
+            onClick={startGame}
+            disabled={players.length < 2}
+            className="bg-green-600 px-6 py-2 rounded font-bold disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+            Lancer la partie
+            </button>
+            {players.length < 2 && (
+            <p className="text-xs text-gray-500">
+                Il faut au moins 2 joueurs pour lancer la partie
+            </p>
+            )}
+        </div>
+        ) : (
         <p className="text-gray-500">En attente du créateur...</p>
-      )}
+        )}
     </div>
   )
 }
