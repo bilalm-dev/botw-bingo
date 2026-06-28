@@ -10,6 +10,8 @@ type Player = {
   player_uid: string
 }
 
+type WinCondition = "bingo" | "territoire"
+
 function WaitingRoomPage() {
   const { roomId } = useParams()
   const navigate = useNavigate()
@@ -18,6 +20,7 @@ function WaitingRoomPage() {
   const [createdBy, setCreatedBy] = useState<string | null>(null)
   const [status, setStatus] = useState("waiting")
   const [players, setPlayers] = useState<Player[]>([])
+  const [winCondition, setWinCondition] = useState<WinCondition>("bingo")
 
   const [playerUid] = useState(() => getOrCreatePlayerUid())
 
@@ -123,7 +126,7 @@ function WaitingRoomPage() {
 
     const { data, error } = await supabase
       .from("rooms")
-      .update({ status: "playing", grid_state: grid })
+      .update({ status: "playing", grid_state: grid, win_condition: winCondition })
       .eq("id", roomUuid)
       .eq("status", "waiting")
       .select("id")
@@ -183,7 +186,42 @@ function WaitingRoomPage() {
         </div>
 
         {isHost ? (
-          <div className="flex flex-col items-center gap-2">
+          <div className="flex flex-col items-center gap-4">
+            <div className="flex flex-col items-center gap-2">
+              <p className="text-xs uppercase tracking-wide text-parchment/50">
+                Condition de victoire
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setWinCondition("bingo")}
+                  className={`rounded-md border px-3 py-1.5 text-sm transition ${
+                    winCondition === "bingo"
+                      ? "border-ancient-gold/60 bg-ancient-gold/10 text-ancient-gold"
+                      : "border-white/10 text-parchment/50 hover:border-white/20"
+                  }`}
+                >
+                  Bingo classique
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWinCondition("territoire")}
+                  className={`rounded-md border px-3 py-1.5 text-sm transition ${
+                    winCondition === "territoire"
+                      ? "border-ancient-gold/60 bg-ancient-gold/10 text-ancient-gold"
+                      : "border-white/10 text-parchment/50 hover:border-white/20"
+                  }`}
+                >
+                  Conquête de territoire
+                </button>
+              </div>
+              {winCondition === "territoire" && (
+                <p className="max-w-xs text-center text-xs text-parchment/40">
+                  Le premier à valider 13 défis sur 25 gagne, peu importe la disposition.
+                </p>
+              )}
+            </div>
+
             <button
               onClick={startGame}
               disabled={players.length < 2}

@@ -11,6 +11,8 @@ type Player = {
   player_uid: string
 }
 
+type WinCondition = "bingo" | "territoire"
+
 function LobbyPage() {
   const { roomId } = useParams()
   const navigate = useNavigate()
@@ -21,6 +23,7 @@ function LobbyPage() {
   const [grid, setGrid] = useState<BingoCellData[]>([])
   const [winner, setWinner] = useState<string | null>(null)
   const [status, setStatus] = useState<string>("playing")
+  const [winCondition, setWinCondition] = useState<WinCondition>("bingo")
 
   const [playerUid] = useState(() => getOrCreatePlayerUid())
 
@@ -40,7 +43,7 @@ function LobbyPage() {
 
       const { data: room } = await supabase
         .from("rooms")
-        .select("id, winner, created_by, status, grid_state")
+        .select("id, winner, created_by, status, grid_state, win_condition")
         .eq("code", roomId)
         .maybeSingle()
 
@@ -59,6 +62,7 @@ function LobbyPage() {
       setWinner(room.winner ?? null)
       setCreatedBy(room.created_by ?? null)
       setStatus(room.status)
+      setWinCondition((room.win_condition as WinCondition) ?? "bingo")
 
       await refreshPlayers(room.id)
       await refreshGrid(room.id)
@@ -146,7 +150,7 @@ function LobbyPage() {
         async () => {
           const { data } = await supabase
             .from("rooms")
-            .select("winner, status, created_by")
+            .select("winner, status, created_by, win_condition")
             .eq("id", roomUuid)
             .maybeSingle()
 
@@ -155,6 +159,7 @@ function LobbyPage() {
           setStatus(data.status)
           setWinner(data.winner ?? null)
           setCreatedBy(data.created_by ?? null)
+          setWinCondition((data.win_condition as WinCondition) ?? "bingo")
 
           if (data.status === "waiting") {
             navigate(`/waiting/${roomId}`)
@@ -198,6 +203,12 @@ function LobbyPage() {
 
   function checkWin(g: BingoCellData[]) {
     if (g.length !== 25) return false
+
+    if (winCondition === "territoire") {
+      const myCount = g.filter(isMine).length
+      return myCount >= 13
+    }
+
     const size = 5
 
     for (let r = 0; r < size; r++) {
@@ -235,7 +246,7 @@ function LobbyPage() {
           if (error) console.error(error)
         })
     }
-  }, [grid, winner, status])
+  }, [grid, winner, status, winCondition])
 
   // ---------------- RESET / RELANCER (host uniquement) ----------------
   async function resetGame() {
@@ -265,9 +276,12 @@ function LobbyPage() {
   // ---------------- UI ----------------
   return (
     <div className="min-h-screen bg-void p-6 font-body text-white">
-      <h1 className="mb-6 text-center font-display text-2xl tracking-wide text-ancient-gold">
+      <h1 className="mb-1 text-center font-display text-2xl tracking-wide text-ancient-gold">
         Bingo Hyrule
       </h1>
+      <p className="mb-6 text-center text-xs uppercase tracking-widest text-parchment/40">
+        Mode : {winCondition === "territoire" ? "Conquête de territoire" : "Bingo classique"}
+      </p>
 
       <div className="mb-6 flex flex-wrap justify-center gap-2">
         {players.map((p) => {
